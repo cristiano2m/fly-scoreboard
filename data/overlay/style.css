@@ -317,3 +317,253 @@ body {
     .football-panel__team { padding: 12px; gap: 8px; }
     .football-panel__logo { width: 24px; height: 24px; }
 }
+
+/* --- Match events: shared stage helpers --- */
+.module-stage--bottom {
+    align-items: flex-end;
+}
+
+/* --- Goal / card alert (alerts.html) --- */
+.fly-alert {
+    --alert-color: #22c55e;
+    --team-accent: #ffffff;
+    min-width: min(560px, calc(100vw - 60px));
+    max-width: calc(100vw - 60px);
+    /* flex, not grid: fs-if hides the logo/minute and must not shift columns */
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 18px 12px 12px;
+    color: var(--text-white);
+    background: var(--bg-main);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 6px solid var(--team-accent);
+    border-radius: 7px;
+    filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.55));
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+    transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fly-alert.is-active {
+    opacity: 1;
+    transform: none;
+}
+
+.fly-alert--yellow { --alert-color: #ffd60a; }
+.fly-alert--red { --alert-color: #ef233c; }
+
+.fly-alert__badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--alert-color);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+
+.fly-alert--yellow .fly-alert__badge,
+.fly-alert--red .fly-alert__badge {
+    width: 30px;
+    height: 42px;
+    margin: 0 7px;
+    border-radius: 4px;
+    transform: rotate(6deg);
+}
+
+.fly-alert__logo {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+}
+
+.fly-alert__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.fly-alert__title {
+    color: var(--alert-color);
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.fly-alert__player {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    overflow: hidden;
+    font-size: 1.15rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fly-alert__number {
+    color: var(--clock-amber);
+    font-variant-numeric: tabular-nums;
+}
+
+.fly-alert__team {
+    overflow: hidden;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.fly-alert__minute {
+    color: var(--clock-amber);
+    font-size: 1.4rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Penalty shootout (penalties.html) --- */
+.pk-board {
+    width: min(620px, calc(100vw - 60px));
+    color: var(--text-white);
+    background: var(--bg-main);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    overflow: hidden;
+    filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.55));
+    opacity: 0;
+    transform: translateY(-16px);
+    transition: opacity 0.35s ease, transform 0.4s ease;
+}
+
+.pk-board.is-active {
+    opacity: 1;
+    transform: none;
+}
+
+.pk-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 4px solid transparent;
+}
+
+.pk-row.is-next {
+    border-left-color: var(--clock-amber);
+    background: rgba(255, 183, 3, 0.06);
+}
+
+.pk-team {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.pk-marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.pk-mark {
+    width: 20px;
+    height: 20px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    box-sizing: border-box;
+    color: #0c0c0c;
+    font-size: 0.75rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.pk-mark--goal { background: #22c55e; border-color: #22c55e; }
+.pk-mark--goal::after { content: "\2713"; }
+.pk-mark--miss { background: #ef233c; border-color: #ef233c; color: #ffffff; }
+.pk-mark--miss::after { content: "\2715"; }
+
+.pk-total {
+    min-width: 42px;
+    font-size: 1.8rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.pk-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 16px;
+    color: var(--text-dim);
+    background: var(--bg-center);
+    font-size: 0.78rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.pk-winner {
+    color: var(--clock-amber);
+    text-transform: uppercase;
+}
+
+/* --- Sponsors strip (sponsors.html) --- */
+.fly-sponsors {
+    max-width: calc(100vw - 60px);
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 7px;
+    filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.45));
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.35s ease, transform 0.4s ease;
+}
+
+.fly-sponsors.is-active {
+    opacity: 1;
+    transform: none;
+}
+
+.fly-sponsors__logos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    align-items: center;
+    justify-content: center;
+}
+
+.fly-sponsor {
+    height: 56px;
+    max-width: 220px;
+    object-fit: contain;
+    animation: fly-sponsor-in 0.5s ease both;
+}
+
+.fly-sponsors--rotate .fly-sponsor {
+    height: 72px;
+    max-width: 320px;
+}
+
+@keyframes fly-sponsor-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fly-alert,
+    .pk-board,
+    .fly-sponsors {
+        transform: none;
+        transition: opacity 0.2s linear;
+    }
+    .fly-sponsor { animation: none; }
+}

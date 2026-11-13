@@ -8,6 +8,7 @@
 #include "fly_score_i18n.hpp"
 #include "fly_score_qt_helpers.hpp"
 #include "fly_score_state.hpp"
+#include "fly_score_match.hpp"
 
 #include <QGroupBox>
 #include <QGridLayout>
@@ -22,6 +23,17 @@
 #include <QMessageBox>
 #include <QStyle>
 #include <QColorDialog>
+#include <QPlainTextEdit>
+
+static QPlainTextEdit *makePlayersEdit(QWidget *parent)
+{
+	auto *edit = new QPlainTextEdit(parent);
+	edit->setPlaceholderText(fly_i18n("Teams.PlayersPlaceholder"));
+	edit->setToolTip(fly_i18n("Teams.PlayersTooltip"));
+	edit->setTabChangesFocus(true);
+	edit->setMinimumHeight(110);
+	return edit;
+}
 
 static QColor colorFromU32(uint32_t c)
 {
@@ -49,7 +61,7 @@ FlyTeamsDialog::FlyTeamsDialog(const QString &dataDir, FlyState &state, QWidget 
 	setModal(false);
 
 	setMinimumWidth(480);
-	resize(520, 420);
+	resize(560, 680);
 	setSizeGripEnabled(false);
 
 	auto *root = new QVBoxLayout(this);
@@ -103,6 +115,10 @@ FlyTeamsDialog::FlyTeamsDialog(const QString &dataDir, FlyState &state, QWidget 
     hb->addWidget(new QLabel(fly_i18n("Common.ColorColon"), gbHome), 3, 0);
     hb->addWidget(homeColor_, 3, 1, 1, 2);
 
+	homePlayers_ = makePlayersEdit(gbHome);
+	hb->addWidget(new QLabel(fly_i18n("Teams.PlayersColon"), gbHome), 4, 0, Qt::AlignTop);
+	hb->addWidget(homePlayers_, 4, 1, 1, 2);
+
 	gbHome->setLayout(hb);
 
 	auto *gbAway = new QGroupBox(fly_i18n("Teams.GuestsTeam"), this);
@@ -145,6 +161,10 @@ FlyTeamsDialog::FlyTeamsDialog(const QString &dataDir, FlyState &state, QWidget 
 
     ab->addWidget(new QLabel(fly_i18n("Common.ColorColon"), gbAway), 3, 0);
     ab->addWidget(awayColor_, 3, 1, 1, 2);
+
+	awayPlayers_ = makePlayersEdit(gbAway);
+	ab->addWidget(new QLabel(fly_i18n("Teams.PlayersColon"), gbAway), 4, 0, Qt::AlignTop);
+	ab->addWidget(awayPlayers_, 4, 1, 1, 2);
 
 	gbAway->setLayout(ab);
 
@@ -213,6 +233,8 @@ void FlyTeamsDialog::syncUiFromState()
 		homeLogo_->setText(state_.home.logo);
 
     updateColorButton(homeColor_, state_.home.color);
+	if (homePlayers_)
+		homePlayers_->setPlainText(fly_players_to_text(state_.home.players));
 
 	if (awayTitle_)
 		awayTitle_->setText(state_.away.title);
@@ -222,6 +244,8 @@ void FlyTeamsDialog::syncUiFromState()
 		awayLogo_->setText(state_.away.logo);
 
     updateColorButton(awayColor_, state_.away.color);
+	if (awayPlayers_)
+		awayPlayers_->setPlainText(fly_players_to_text(state_.away.players));
 }
 
 void FlyTeamsDialog::syncStateFromUi()
@@ -238,6 +262,10 @@ void FlyTeamsDialog::syncStateFromUi()
 		state_.away.subtitle = awaySub_->text();
 	if (awayLogo_)
 		state_.away.logo = awayLogo_->text();
+	if (homePlayers_)
+		state_.home.players = fly_players_from_text(homePlayers_->toPlainText());
+	if (awayPlayers_)
+		state_.away.players = fly_players_from_text(awayPlayers_->toPlainText());
 }
 
 void FlyTeamsDialog::onPickHomeColor()

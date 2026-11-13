@@ -6,11 +6,17 @@
 #include <QByteArray>
 #include <string>
 
+struct FlyPlayer {
+	QString number;
+	QString name;
+};
+
 struct FlyTeam {
 	QString title;
 	QString subtitle;
 	QString logo;
 	uint32_t color = 0xFFFFFF;
+	QVector<FlyPlayer> players;
 };
 
 struct FlyTimer {
@@ -36,6 +42,39 @@ struct FlySingleStat {
 	bool visible = true;
 };
 
+// On-screen notice for a goal or a card. Timestamps use epoch milliseconds.
+struct FlyAlert {
+	QString type; // "goal", "yellow" or "red"
+	QString team; // "home" or "away"
+	QString title;
+	QString player_number;
+	QString player_name;
+	QString minute;
+	long long started_ms = 0;
+	long long duration_ms = 8000;
+	bool visible = false;
+};
+
+struct FlyShootoutKick {
+	bool goal = false;
+	QString player;
+};
+
+// Penalty shootout. The overlay derives totals, sudden death and the winner.
+struct FlyShootout {
+	bool active = false;
+	bool visible = false;
+	int rounds = 5;
+	QString first_team = QStringLiteral("home");
+	QVector<FlyShootoutKick> home;
+	QVector<FlyShootoutKick> away;
+	QVector<QString> sequence; // team of each kick, in order, for undo
+};
+
+struct FlySponsor {
+	QString name;
+	QString logo;
+};
 
 struct FlyState {
 	FlyTeam home;
@@ -47,6 +86,15 @@ struct FlyState {
 	QVector<FlyCustomField> custom_fields;
 	QVector<FlySingleStat> single_stats;
 	QVector<FlyTimer> timers;
+
+	FlyAlert alert;
+	long long alert_duration_ms = 8000;
+	FlyShootout shootout;
+
+	QVector<FlySponsor> sponsors;
+	bool show_sponsors = false;
+	QString sponsors_mode = QStringLiteral("rotate"); // "rotate" or "all"
+	long long sponsors_rotate_ms = 6000;
 };
 
 bool     fly_state_read_json(const std::string &base_dir, std::string &out_json);

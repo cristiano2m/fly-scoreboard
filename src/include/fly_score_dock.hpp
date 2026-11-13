@@ -8,6 +8,9 @@
 
 #include "fly_score_state.hpp"
 #include "fly_score_event_log.hpp"
+#include "fly_score_match.hpp"
+
+#include <memory>
 
 class QPushButton;
 class QSpinBox;
@@ -19,6 +22,8 @@ class QLabel;
 class QShortcut;
 class QJsonObject;
 class FlyScoreWebSocketServer;
+class FlyObsHotkeys;
+class QListWidget;
 
 struct FlyCustomFieldUi {
 	QWidget *row = nullptr;
@@ -73,6 +78,18 @@ public slots:
 	void openHotkeysDialog();
 	void ensureResourcesDefaults();
 
+public:
+	// Match events (fly_score_dock_match.cpp). Plain methods, not slots:
+	// they are invoked from lambdas (buttons, OBS hotkeys, WebSocket).
+	void triggerAlert(FlyAlertKind kind, bool home);
+	void hideAlert();
+	void undoLastAlert();
+	void cycleSelectedPlayer(bool home, int delta);
+	void addShootoutKick(bool home, bool goal);
+	void undoShootoutKick();
+	void toggleShootoutVisible();
+	void toggleSponsorsVisible();
+
 private slots:
 	void onClearTeamsAndReset();
 
@@ -113,6 +130,25 @@ private:
 	void refreshEventLogUi();
 	QString eventLogsDirectory() const;
 
+	// Match events (fly_score_dock_match.cpp)
+	QWidget *buildAlertsTab(QWidget *parent);
+	QWidget *buildShootoutTab(QWidget *parent);
+	QWidget *buildSponsorsTab(QWidget *parent);
+	void refreshMatchUi();
+	void refreshAlertStatus();
+	void refreshShootoutStatus();
+	void refreshSponsorsList();
+	void registerObsHotkeys();
+	bool handleMatchCommand(const QString &action, const QJsonObject &command);
+	void fireAlert(FlyAlertKind kind, bool home, const FlyPlayer *player);
+	void logMatchEvent(const QString &line);
+	void startShootout();
+	void endShootout();
+	void recordShootoutKick(bool home, bool goal, const QString &player);
+	void addSponsorsFromFiles();
+	void removeSelectedSponsor();
+	void moveSelectedSponsor(int delta);
+
 private:
 	QString dataDir_;
 	QString activeTemplateName_;
@@ -141,6 +177,28 @@ private:
 	QPushButton *eventLogToggle_ = nullptr;
 	QPushButton *eventAdd_ = nullptr;
 	bool frontendEventCallbackConnected_ = false;
+
+	struct LastAlertChange {
+		bool valid = false;
+		int fieldIndex = -1;
+		bool home = true;
+	};
+	LastAlertChange lastAlertChange_;
+	QComboBox *alertPlayerHome_ = nullptr;
+	QComboBox *alertPlayerAway_ = nullptr;
+	QSpinBox *alertSeconds_ = nullptr;
+	QLabel *alertStatus_ = nullptr;
+	QComboBox *shootoutFirst_ = nullptr;
+	QSpinBox *shootoutRounds_ = nullptr;
+	QComboBox *shootoutKickerHome_ = nullptr;
+	QComboBox *shootoutKickerAway_ = nullptr;
+	QCheckBox *shootoutVisible_ = nullptr;
+	QLabel *shootoutStatus_ = nullptr;
+	QCheckBox *sponsorsVisible_ = nullptr;
+	QComboBox *sponsorsMode_ = nullptr;
+	QSpinBox *sponsorsSeconds_ = nullptr;
+	QListWidget *sponsorsList_ = nullptr;
+	std::unique_ptr<FlyObsHotkeys> obsHotkeys_;
 };
 
 void fly_create_dock();

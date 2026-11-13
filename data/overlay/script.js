@@ -403,6 +403,199 @@ function applyIfBindings(data) {
 }
 
 // -----------------------------------------------------------------------------
+// Match events: alerts, penalty shootout and sponsors
+// -----------------------------------------------------------------------------
+function colorToHex(color) {
+  if (color === undefined || color === null || color === "") return "";
+  // renderFrame may already have converted the team color for team_x/team_y.
+  if (typeof color === "string" && color.startsWith("#")) return color;
+  return intToHex(color);
+}
+
+function teamView(team) {
+  const t = team || {};
+  return {
+    title: t.title || "",
+    subtitle: t.subtitle || "",
+    logo: t.logo || "",
+    color: colorToHex(t.color),
+  };
+}
+
+/** On-screen goal/card notice. Active while visible and inside its duration. */
+function buildAlertView(st, now) {
+  const a = st.alert || {};
+  const started = Number(a.started_ms ?? 0);
+  const duration = Number(a.duration_ms ?? 0);
+  const active =
+    !!a.visible && !!a.type && (duration <= 0 || (started > 0 && now - started < duration));
+  const home = a.team !== "away";
+  const side = home !== !!st.swap_sides ? "x" : "y";
+  const type = ["goal", "yellow", "red"].includes(a.type) ? a.type : "goal";
+  const number = a.player_number || "";
+  const name = a.player_name || "";
+
+  return {
+    active,
+    type,
+    title: a.title || "",
+    number,
+    name,
+    has_player: !!(number || name),
+    minute: a.minute || "",
+    team: teamView(home ? st.home : st.away),
+    side,
+    css: `fly-alert fly-alert--${type} fly-alert--${side}${active ? " is-active" : ""}`,
+  };
+}
+
+function countGoals(kicks) {
+  return kicks.filter((k) => k && k.result === "goal").length;
+}
+
+/**
+ * Penalty shootout summary: totals, next kicker, sudden death and winner.
+ * Regulation: `rounds` kicks per team, decided as soon as one side can no
+ * longer be caught. Afterwards sudden death decides on equal kick counts.
+ */
+function shootoutSummary(so) {
+  const rounds = Math.max(1, Number(so.rounds) || 5);
+  const home = Array.isArray(so.home) ? so.home : [];
+  const away = Array.isArray(so.away) ? so.away : [];
+  const hk = home.length;
+  const ak = away.length;
+  const hg = countGoals(home);
+  const ag = countGoals(away);
+
+  let winner = "";
+  if (hk <= rounds && ak <= rounds) {
+    const hRemaining = rounds - hk;
+    const aRemaining = rounds - ak;
+    if (hg > ag + aRemaining) winner = "home";
+    else if (ag > hg + hRemaining) winner = "away";
+  } else if (hk === ak && hg !== ag) {
+    winner = hg > ag ? "home" : "away";
+  }
+
+  const suddenDeath = !winner && hk >= rounds && ak >= rounds;
+  const first = so.first_team === "away" ? "away" : "home";
+  let next = "";
+  if (!winner) next = hk === ak ? first : hk < ak ? "home" : "away";
+
+  return {
+    rounds,
+    home: { goals: hg, misses: hk - hg, taken: hk },
+    away: { goals: ag, misses: ak - ag, taken: ak },
+    winner,
+    sudden_death: suddenDeath,
+    next,
+  };
+}
+
+function shootoutMarks(kicks, slots) {
+  const marks = [];
+  for (let i = 0; i < slots; i++) {
+    const k = kicks[i];
+    marks.push(k ? (k.result === "goal" ? "goal" : "miss") : "pending");
+  }
+  return marks;
+}
+
+function buildShootoutView(st) {
+  const so = st.shootout || {};
+  const summary = shootoutSummary(so);
+  const home = Array.isArray(so.home) ? so.home : [];
+  const away = Array.isArray(so.away) ? so.away : [];
+  const slots = Math.max(summary.rounds, home.length, away.length);
+  const swap = !!st.swap_sides;
+
+  const side = (key) => {
+    const isHome = key === "home";
+    return {
+      ...summary[key],
+      ...teamView(isHome ? st.home : st.away),
+      marks: shootoutMarks(isHome ? home : away, slots),
+      is_winner: summary.winner === key,
+      is_next: !!so.active && summary.next === key,
+    };
+  };
+
+  const winnerTeam = summary.winner ? teamView(summary.winner === "home" ? st.home : st.away) : null;
+
+  return {
+    active: !!so.active,
+    visible: !!so.visible,
+    x: side(swap ? "away" : "home"),
+    y: side(swap ? "home" : "away"),
+    sudden_death: summary.sudden_death,
+    has_winner: !!summary.winner,
+    winner_title: winnerTeam ? winnerTeam.title : "",
+    css: `pk-board${so.visible ? " is-active" : ""}`,
+  };
+}
+
+function buildSponsorsView(st, now) {
+  const items = (Array.isArray(st.sponsors) ? st.sponsors : []).filter((sp) => sp && sp.logo);
+  const mode = st.sponsors_mode === "all" ? "all" : "rotate";
+  const rotateMs = Math.max(1000, Number(st.sponsors_rotate_ms) || 6000);
+  const index = items.length ? Math.floor(now / rotateMs) % items.length : -1;
+  const visible = !!st.show_sponsors && items.length > 0;
+
+  return {
+    visible,
+    mode,
+    items,
+    index,
+    current: index >= 0 ? items[index] : null,
+    css: `fly-sponsors fly-sponsors--${mode}${visible ? " is-active" : ""}`,
+  };
+}
+
+// Blocks the {{ }} engine cannot express (variable-length lists).
+const dynamicBlocks = { marks: [], sponsors: [] };
+
+function collectDynamicBlocks() {
+  dynamicBlocks.marks = Array.from(document.querySelectorAll("[data-fly-marks]"));
+  dynamicBlocks.sponsors = Array.from(document.querySelectorAll("[data-fly-sponsors]"));
+}
+
+function replaceChildrenIfChanged(el, signature, build) {
+  if (el.dataset.flySignature === signature) return;
+  el.dataset.flySignature = signature;
+  while (el.firstChild) el.removeChild(el.firstChild);
+  build(el);
+}
+
+function renderDynamicBlocks(view) {
+  for (const el of dynamicBlocks.marks) {
+    const side = el.getAttribute("data-fly-marks") === "y" ? "y" : "x";
+    const marks = view.shootout_view[side].marks;
+    replaceChildrenIfChanged(el, marks.join(","), (target) => {
+      marks.forEach((mark) => {
+        const span = document.createElement("span");
+        span.className = `pk-mark pk-mark--${mark}`;
+        target.appendChild(span);
+      });
+    });
+  }
+
+  const sponsors = view.sponsors_view;
+  for (const el of dynamicBlocks.sponsors) {
+    const shown = sponsors.mode === "all" ? sponsors.items : sponsors.current ? [sponsors.current] : [];
+    const signature = `${sponsors.mode}|${sponsors.index}|${shown.map((sp) => sp.logo).join(",")}`;
+    replaceChildrenIfChanged(el, signature, (target) => {
+      shown.forEach((sp) => {
+        const img = document.createElement("img");
+        img.className = "fly-sponsor";
+        img.src = sp.logo;
+        img.alt = sp.name || "";
+        target.appendChild(img);
+      });
+    });
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Rendering
 // -----------------------------------------------------------------------------
 let currentJsonState = null;
@@ -469,17 +662,22 @@ function renderFrame() {
     fields_by_key[field.key] = field;
   });
 
+  const now = Date.now();
   const view = {
     ...st,
     team_x,
     team_y,
     fields_xy,
     fields_by_key,
+    alert_view: buildAlertView(st, now),
+    shootout_view: buildShootoutView(st),
+    sponsors_view: buildSponsorsView(st, now),
   };
 
   // First apply fs-if (visibility), then template bindings (text/attrs)
   applyIfBindings(view);
   applyTemplateBindings(view);
+  renderDynamicBlocks(view);
 }
 
 // -----------------------------------------------------------------------------
@@ -565,6 +763,7 @@ function animationLoop() {
 // Boot
 // -----------------------------------------------------------------------------
 collectTemplateBindings();
+collectDynamicBlocks();
 connectSocket();
 pollLoop();
 animationLoop();

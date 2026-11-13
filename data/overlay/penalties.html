@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Football Penalty Shootout</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="module-stage">
+    <section class="{{shootout_view.css}}">
+      <header class="football-panel__title">
+        <span fs-if="!shootout_view.sudden_death">Penalties</span>
+        <span fs-if="shootout_view.sudden_death">Sudden death</span>
+      </header>
+
+      <div class="{{shootout_view.x.is_next ? 'pk-row is-next' : 'pk-row'}}">
+        <img class="football-panel__logo" fs-if="shootout_view.x.logo" src="{{shootout_view.x.logo}}" alt="" />
+        <span class="pk-team">{{shootout_view.x.title}}</span>
+        <div class="pk-marks" data-fly-marks="x"></div>
+        <strong class="pk-total">{{shootout_view.x.goals}}</strong>
+      </div>
+
+      <div class="{{shootout_view.y.is_next ? 'pk-row is-next' : 'pk-row'}}">
+        <img class="football-panel__logo" fs-if="shootout_view.y.logo" src="{{shootout_view.y.logo}}" alt="" />
+        <span class="pk-team">{{shootout_view.y.title}}</span>
+        <div class="pk-marks" data-fly-marks="y"></div>
+        <strong class="pk-total">{{shootout_view.y.goals}}</strong>
+      </div>
+
+      <footer class="pk-footer">
+        <span>{{shootout_view.x.goals}} / {{shootout_view.x.taken}}</span>
+        <span class="pk-winner" fs-if="shootout_view.has_winner">{{shootout_view.winner_title}}</span>
+        <span>{{shootout_view.y.goals}} / {{shootout_view.y.taken}}</span>
+      </footer>
+    </section>
+  </main>
+  <script src="script.js" defer></script>
+</body>
+</html>

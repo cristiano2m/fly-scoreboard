@@ -17,6 +17,7 @@
 #include "fly_score_timers_dialog.hpp"
 #include "fly_score_hotkeys_dialog.hpp"
 #include "fly_score_websocket_server.hpp"
+#include "fly_score_obs_hotkeys.hpp"
 
 #ifdef ENABLE_EMBEDDED_DEFAULTS
 #include "embedded_assets.hpp"
@@ -525,6 +526,9 @@ bool FlyScoreDock::init()
 		addTab(singleTab, fly_i18n("Common.SingleStats"));
 		addTab(timersTab, fly_i18n("Common.Timers"));
 		addTab(eventsTab, fly_i18n("Common.Events"));
+		addTab(buildAlertsTab(tabs), fly_i18n("Match.AlertsTab"));
+		addTab(buildShootoutTab(tabs), fly_i18n("Match.Shootout"));
+		addTab(buildSponsorsTab(tabs), fly_i18n("Match.Sponsors"));
 
 		mainVBox->addWidget(tabs);
 	}
@@ -639,6 +643,7 @@ bool FlyScoreDock::init()
 
 	hotkeyBindings_ = buildMergedHotkeyBindings();
 	applyHotkeyBindings(hotkeyBindings_);
+	registerObsHotkeys();
 
 	// Refresh only the visible timer text; live clocks do not need disk writes or broadcasts.
 	auto *timerDisplay = new QTimer(this);
@@ -1167,6 +1172,9 @@ void FlyScoreDock::handleRemoteCommand(const QJsonObject &command)
 				       ? jsonString(command, QStringLiteral("type"))
 				       : jsonString(command, QStringLiteral("action"));
 
+	if (handleMatchCommand(action, command))
+		return;
+
 	if (action == QLatin1String("get_state")) {
 		broadcastCurrentState();
 		return;
@@ -1478,6 +1486,7 @@ void FlyScoreDock::refreshUiFromState(bool onlyTimeIfRunning)
 	loadCustomFieldControlsFromState();
 	loadSingleStatControlsFromState();
 	loadTimerControlsFromState();
+	refreshMatchUi();
 }
 
 void FlyScoreDock::onClearTeamsAndReset()
@@ -1503,6 +1512,10 @@ void FlyScoreDock::onClearTeamsAndReset()
 		tm.running = false;
 		tm.last_tick_ms = 0;
 	}
+
+	st_.alert.visible = false;
+	st_.shootout = FlyShootout{};
+	lastAlertChange_ = LastAlertChange{};
 
 	saveState();
 	refreshUiFromState(false);
@@ -2164,6 +2177,9 @@ void FlyScoreDock::ensureResourcesDefaults()
 	writeDefaultText(QDir(resDir).filePath(QStringLiteral("manifest.ini")), fly_score_embedded::manifest_ini);
 	writeDefaultText(QDir(resDir).filePath(QStringLiteral("style.css")), fly_score_embedded::style_css);
 	writeDefaultText(QDir(resDir).filePath(QStringLiteral("script.js")), fly_score_embedded::script_js);
+	writeDefaultText(QDir(resDir).filePath(QStringLiteral("alerts.html")), fly_score_embedded::alerts_html);
+	writeDefaultText(QDir(resDir).filePath(QStringLiteral("penalties.html")), fly_score_embedded::penalties_html);
+	writeDefaultText(QDir(resDir).filePath(QStringLiteral("sponsors.html")), fly_score_embedded::sponsors_html);
 #endif
 
 	fly_state_ensure_json_exists(resDir, &st_);
@@ -2173,6 +2189,10 @@ static QPointer<FlyScoreDock> g_dockContent;
 
 FlyScoreDock::~FlyScoreDock()
 {
+	// Unregister global hotkeys first so no queued action targets a dying dock.
+	if (obsHotkeys_)
+		obsHotkeys_->unregisterAll();
+
 	// The server is a child created after the labels; stop its UI signals before
 	// QWidget destroys those labels and then the server during dock teardown.
 	if (webSocketServer_) {

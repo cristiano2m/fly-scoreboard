@@ -113,6 +113,8 @@ set(
   ${FS_INC_DIR}/fly_score_websocket_server.hpp
   ${FS_SRC_DIR}/fly_score_event_log.cpp
   ${FS_INC_DIR}/fly_score_event_log.hpp
+  ${FS_SRC_DIR}/fly_score_match.cpp
+  ${FS_INC_DIR}/fly_score_match.hpp
 )
 
 list(
@@ -130,6 +132,9 @@ list(
   ${FS_INC_DIR}/fly_score_timers_dialog.hpp
   ${FS_SRC_DIR}/fly_score_hotkeys_dialog.cpp
   ${FS_INC_DIR}/fly_score_hotkeys_dialog.hpp
+  ${FS_SRC_DIR}/fly_score_dock_match.cpp
+  ${FS_SRC_DIR}/fly_score_obs_hotkeys.cpp
+  ${FS_INC_DIR}/fly_score_obs_hotkeys.hpp
 )
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${OBS_FLY_SCORE_SRC})
@@ -148,6 +153,9 @@ if(EMBED_DEFAULT_ASSETS)
     "${FS_OVERLAY_DIR}/fouls.html"
     "${FS_OVERLAY_DIR}/cards.html"
     "${FS_OVERLAY_DIR}/corners.html"
+    "${FS_OVERLAY_DIR}/alerts.html"
+    "${FS_OVERLAY_DIR}/penalties.html"
+    "${FS_OVERLAY_DIR}/sponsors.html"
     "${FS_OVERLAY_DIR}/manifest.ini"
     "${FS_OVERLAY_DIR}/style.css"
     "${FS_OVERLAY_DIR}/script.js"
@@ -166,11 +174,29 @@ if(EMBED_DEFAULT_ASSETS)
       if(NOT _contents MATCHES "\n$")
         set(_contents "${_contents}\n")
       endif()
+      # MSVC rejects single string literals over ~16 KB (C2026). Emit adjacent raw
+      # literals of at most 8000 bytes, cut after a newline so UTF-8 stays intact.
+      set(_literal "")
+      set(_rest "${_contents}")
+      string(LENGTH "${_rest}" _len)
+      while(_len GREATER 8000)
+        string(SUBSTRING "${_rest}" 0 8000 _head)
+        string(FIND "${_head}" "\n" _cut REVERSE)
+        if(_cut LESS 0)
+          message(FATAL_ERROR "Embedded asset has a line longer than 8000 bytes: ${_f}")
+        endif()
+        math(EXPR _cut "${_cut} + 1")
+        string(SUBSTRING "${_rest}" 0 ${_cut} _chunk)
+        string(SUBSTRING "${_rest}" ${_cut} -1 _rest)
+        string(APPEND _literal "R\"obsplg(${_chunk})obsplg\"\n")
+        string(LENGTH "${_rest}" _len)
+      endwhile()
+      string(APPEND _literal "R\"obsplg(${_rest})obsplg\"")
       string(
         APPEND
         _asset_entries
         "#define HAVE_${_id} 1
-inline constexpr const char* ${_id} = R\"obsplg(${_contents})obsplg\";\n"
+inline constexpr const char* ${_id} = ${_literal};\n"
       )
     else()
       message(WARNING "Embedded asset missing: ${_f}")

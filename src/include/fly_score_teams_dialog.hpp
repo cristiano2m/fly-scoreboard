@@ -8,6 +8,7 @@
 class QLineEdit;
 class QToolButton;
 class QPushButton;
+class QPlainTextEdit;
 
 class FlyTeamsDialog : public QDialog {
     Q_OBJECT
@@ -37,10 +38,12 @@ private:
     QLineEdit   *homeLogo_   = nullptr;
     QToolButton *homeBrowse_ = nullptr;
     QToolButton *homeColor_ = nullptr;
+    QPlainTextEdit *homePlayers_ = nullptr;
     QLineEdit   *awayTitle_  = nullptr;
     QLineEdit   *awaySub_    = nullptr;
     QLineEdit   *awayLogo_   = nullptr;
     QToolButton *awayBrowse_ = nullptr;
     QToolButton *awayColor_ = nullptr;
+    QPlainTextEdit *awayPlayers_ = nullptr;
     QPushButton *applyBtn_   = nullptr;
 };

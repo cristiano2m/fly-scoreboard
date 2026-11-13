@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Football Match Alerts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="module-stage module-stage--bottom">
+    <section class="{{alert_view.css}}" style="--team-accent: {{alert_view.team.color}}" aria-live="polite">
+      <div class="fly-alert__badge" aria-hidden="true"></div>
+      <img class="fly-alert__logo" fs-if="alert_view.team.logo" src="{{alert_view.team.logo}}" alt="" />
+      <div class="fly-alert__body">
+        <div class="fly-alert__title">{{alert_view.title}}</div>
+        <div class="fly-alert__player" fs-if="alert_view.has_player">
+          <span class="fly-alert__number" fs-if="alert_view.number">{{alert_view.number}}</span>
+          <span>{{alert_view.name}}</span>
+        </div>
+        <div class="fly-alert__team">{{alert_view.team.title}}</div>
+      </div>
+      <div class="fly-alert__minute" fs-if="alert_view.minute">{{alert_view.minute}}</div>
+    </section>
+  </main>
+  <script src="script.js" defer></script>
+</body>
+</html>

@@ -18,6 +18,8 @@
 #include <QJsonObject>
 #include <QStringList>
 
+#include <algorithm>
+
 static QString moduleBaseDirFromConfigFile()
 {
 	char *p = obs_module_config_path("plugin.json");
@@ -127,6 +129,172 @@ static FlyTimer timerFromJson(const QJsonObject &o)
 	return t;
 }
 
+static QString msToJson(long long ms)
+{
+	return QString::number(ms);
+}
+
+static long long msFromJson(const QJsonValue &v, long long fallback)
+{
+	if (v.isDouble())
+		return static_cast<long long>(v.toDouble());
+	if (v.isString()) {
+		bool ok = false;
+		const long long parsed = v.toString().toLongLong(&ok);
+		return ok ? parsed : fallback;
+	}
+	return fallback;
+}
+
+static QString normalizedTeamKey(const QString &team)
+{
+	return team == QLatin1String("away") ? QStringLiteral("away") : QStringLiteral("home");
+}
+
+static QJsonArray playersToJson(const QVector<FlyPlayer> &players)
+{
+	QJsonArray arr;
+	for (const auto &p : players) {
+		QJsonObject o;
+		o["number"] = p.number;
+		o["name"] = p.name;
+		arr.append(o);
+	}
+	return arr;
+}
+
+static QVector<FlyPlayer> playersFromJson(const QJsonValue &v)
+{
+	QVector<FlyPlayer> out;
+	for (const QJsonValue item : v.toArray()) {
+		if (!item.isObject())
+			continue;
+		const QJsonObject o = item.toObject();
+		FlyPlayer p;
+		p.number = o.value("number").isDouble() ? QString::number(o.value("number").toInt())
+							: o.value("number").toString();
+		p.name = o.value("name").toString();
+		if (!p.number.trimmed().isEmpty() || !p.name.trimmed().isEmpty())
+			out.push_back(p);
+	}
+	return out;
+}
+
+static QJsonObject alertToJson(const FlyAlert &a)
+{
+	QJsonObject o;
+	o["type"] = a.type;
+	o["team"] = a.team;
+	o["title"] = a.title;
+	o["player_number"] = a.player_number;
+	o["player_name"] = a.player_name;
+	o["minute"] = a.minute;
+	o["started_ms"] = msToJson(a.started_ms);
+	o["duration_ms"] = msToJson(a.duration_ms);
+	o["visible"] = a.visible;
+	return o;
+}
+
+static FlyAlert alertFromJson(const QJsonObject &o)
+{
+	FlyAlert a;
+	a.type = o.value("type").toString();
+	a.team = normalizedTeamKey(o.value("team").toString());
+	a.title = o.value("title").toString();
+	a.player_number = o.value("player_number").toString();
+	a.player_name = o.value("player_name").toString();
+	a.minute = o.value("minute").toString();
+	a.started_ms = msFromJson(o.value("started_ms"), 0);
+	a.duration_ms = msFromJson(o.value("duration_ms"), 8000);
+	a.visible = o.value("visible").toBool(false);
+	return a;
+}
+
+static QJsonArray kicksToJson(const QVector<FlyShootoutKick> &kicks)
+{
+	QJsonArray arr;
+	for (const auto &k : kicks) {
+		QJsonObject o;
+		o["result"] = k.goal ? QStringLiteral("goal") : QStringLiteral("miss");
+		o["player"] = k.player;
+		arr.append(o);
+	}
+	return arr;
+}
+
+static QVector<FlyShootoutKick> kicksFromJson(const QJsonValue &v)
+{
+	QVector<FlyShootoutKick> out;
+	for (const QJsonValue item : v.toArray()) {
+		if (!item.isObject())
+			continue;
+		const QJsonObject o = item.toObject();
+		FlyShootoutKick k;
+		k.goal = o.value("result").toString() == QLatin1String("goal");
+		k.player = o.value("player").toString();
+		out.push_back(k);
+	}
+	return out;
+}
+
+static QJsonObject shootoutToJson(const FlyShootout &so)
+{
+	QJsonObject o;
+	o["active"] = so.active;
+	o["visible"] = so.visible;
+	o["rounds"] = so.rounds;
+	o["first_team"] = so.first_team;
+	o["home"] = kicksToJson(so.home);
+	o["away"] = kicksToJson(so.away);
+	QJsonArray seq;
+	for (const auto &team : so.sequence)
+		seq.append(team);
+	o["sequence"] = seq;
+	return o;
+}
+
+static FlyShootout shootoutFromJson(const QJsonObject &o)
+{
+	FlyShootout so;
+	so.active = o.value("active").toBool(false);
+	so.visible = o.value("visible").toBool(false);
+	so.rounds = std::clamp(o.value("rounds").toInt(5), 1, 20);
+	so.first_team = normalizedTeamKey(o.value("first_team").toString());
+	so.home = kicksFromJson(o.value("home"));
+	so.away = kicksFromJson(o.value("away"));
+	for (const QJsonValue v : o.value("sequence").toArray())
+		so.sequence.push_back(normalizedTeamKey(v.toString()));
+	return so;
+}
+
+static QJsonArray sponsorsToJson(const QVector<FlySponsor> &sponsors)
+{
+	QJsonArray arr;
+	for (const auto &sp : sponsors) {
+		QJsonObject o;
+		o["name"] = sp.name;
+		o["logo"] = sp.logo;
+		arr.append(o);
+	}
+	return arr;
+}
+
+static QVector<FlySponsor> sponsorsFromJson(const QJsonValue &v)
+{
+	QVector<FlySponsor> out;
+	for (const QJsonValue item : v.toArray()) {
+		if (!item.isObject())
+			continue;
+		const QJsonObject o = item.toObject();
+		FlySponsor sp;
+		sp.name = o.value("name").toString();
+		sp.logo = o.value("logo").toString();
+		if (!sp.logo.trimmed().isEmpty())
+			out.push_back(sp);
+	}
+	return out;
+}
+
 QJsonObject fly_state_to_json_object(const FlyState &stIn)
 {
 	FlyState st = stIn;
@@ -135,7 +303,7 @@ QJsonObject fly_state_to_json_object(const FlyState &stIn)
 	ensureDefaultSingleStats(st);
 
 	QJsonObject j;
-	j["version"] = 4;
+	j["version"] = 5;
 
 	auto teamToJson = [](const FlyTeam &tm) {
 		QJsonObject o;
@@ -143,6 +311,7 @@ QJsonObject fly_state_to_json_object(const FlyState &stIn)
 		o["subtitle"] = tm.subtitle;
 		o["logo"] = tm.logo;
 		o["color"] = QString::number(tm.color);
+		o["players"] = playersToJson(tm.players);
 
 		return o;
 	};
@@ -183,6 +352,14 @@ QJsonObject fly_state_to_json_object(const FlyState &stIn)
 	}
 	j["timers"] = timersArr;
 
+	j["alert"] = alertToJson(st.alert);
+	j["alert_duration_ms"] = msToJson(st.alert_duration_ms);
+	j["shootout"] = shootoutToJson(st.shootout);
+	j["sponsors"] = sponsorsToJson(st.sponsors);
+	j["show_sponsors"] = st.show_sponsors;
+	j["sponsors_mode"] = st.sponsors_mode;
+	j["sponsors_rotate_ms"] = msToJson(st.sponsors_rotate_ms);
+
 	return j;
 }
 
@@ -210,6 +387,7 @@ bool fly_state_from_json_object(const QJsonObject &j, FlyState &st)
 		tm.subtitle = o.value("subtitle").toString();
 		tm.logo = o.value("logo").toString();
 		tm.color = readColor(o, "color", 0xFFFFFF);
+		tm.players = playersFromJson(o.value("players"));
 		return tm;
 	};
 
@@ -293,6 +471,15 @@ bool fly_state_from_json_object(const QJsonObject &j, FlyState &st)
 	FlyTimer &main = st.timers[0];
 	if (main.mode.isEmpty())
 		main.mode = "countdown";
+
+	st.alert = alertFromJson(j.value("alert").toObject());
+	st.alert_duration_ms = std::clamp(msFromJson(j.value("alert_duration_ms"), 8000), 1000LL, 120000LL);
+	st.shootout = shootoutFromJson(j.value("shootout").toObject());
+	st.sponsors = sponsorsFromJson(j.value("sponsors"));
+	st.show_sponsors = j.value("show_sponsors").toBool(false);
+	st.sponsors_mode = j.value("sponsors_mode").toString() == QLatin1String("all") ? QStringLiteral("all")
+										       : QStringLiteral("rotate");
+	st.sponsors_rotate_ms = std::clamp(msFromJson(j.value("sponsors_rotate_ms"), 6000), 1000LL, 600000LL);
 
 	return true;
 }
